@@ -2,6 +2,7 @@ import re
 
 class ProjectionObject():
     def __init__(self, create_projection_statement):
+        self.recompiled_projection = None
         self.raw_proj = create_projection_statement
         self.proj_parts = self.raw_proj
         self.projection_database = None
@@ -131,13 +132,18 @@ class ProjectionObject():
             self.from_table = from_parts
 
     def set_order_by_list(self):
-        order_by_parts = self.proj_parts.strip().split(',')
+        order_by_parts = self.proj_parts.strip()
+        segmented_pattern = '\sSEGMENTED\sBY\s'
+        seg_search_result = re.search(segmented_pattern, self.proj_parts.strip(), re.IGNORECASE)
+        if seg_search_result:
+            order_by_parts = re.split(segmented_pattern, order_by_parts, re.IGNORECASE)[0]
+        order_by_parts = order_by_parts.strip().split(',')
         self.order_by_list = list(map(lambda o: re.split('\s', o.strip())[0], order_by_parts))
 
     def set_segmentation_clause(self):
-        seg_pattern = '\sUNSEGMENTED\s'
-        seg_search_result = re.search(seg_pattern, self.proj_parts.strip(), re.IGNORECASE)
-        if not seg_search_result:
+        rep_pattern = '\sUNSEGMENTED\s'
+        rep_search_result = re.search(rep_pattern, self.proj_parts.strip(), re.IGNORECASE)
+        if not rep_search_result:
             self.segmentation_spec = True
             self.set_segmentation_parts()
 
@@ -174,25 +180,113 @@ class ProjectionObject():
             self.hash_columns.append(hash_columns)
 
     def set_ksafe_offset(self):
-        ksafe_pattern = 'KSAFE\s'
-        ksafe_search_result = re.search(ksafe_pattern, self.proj_parts, re.IGNORECASE)
+        ksafe_pattern = re.compile('KSAFE\s', re.IGNORECASE)
+        ksafe_search_result = re.search(ksafe_pattern, self.proj_parts)
         if ksafe_search_result:
-            ksafe_parts = re.split(ksafe_pattern, self.proj_parts, re.IGNORECASE)[1]
+            ksafe_parts = re.split(ksafe_pattern, self.proj_parts)[1]
             self.ksafe = int(ksafe_parts.split(' ')[0].strip())
 
-        offset_pattern = 'OFFSET\s'
-        offset_search_result = re.search(offset_pattern, self.proj_parts, re.IGNORECASE)
+        offset_pattern = re.compile('OFFSET\s', re.IGNORECASE)
+        offset_search_result = re.search(offset_pattern, self.proj_parts)
         if offset_search_result:
-            offset_parts = re.split(offset_pattern, self.proj_parts, re.IGNORECASE)[1]
+            offset_parts = re.split(offset_pattern, self.proj_parts)[1]
             self.offset = int(offset_parts.split(' ')[0].strip())
+
+    def recompile_projection(self):
+        recompiled_projection_list = []
+        create_line = self.compile_create_line()
+        projection_columns = self.compile_projection_columns()
+        select_clause = self.compile_select_columns()
+        from_clause = self.compile_from_cluase()
+        order_by_clause = self.compile_order_by_clause()
+        segment_clause = self.compile_segment_clause()
+
+        recompiled_projection_list.append(create_line)
+        recompiled_projection_list.append(projection_columns)
+        recompiled_projection_list.append(select_clause)
+        recompiled_projection_list.append(from_clause)
+        recompiled_projection_list.append(order_by_clause)
+        recompiled_projection_list.append(segment_clause)
+
+        self.rerecompiled_projection = '\n'.join(recompiled_projection_list)
+
+    def compile_create_line(self):
+        create_line = 'CREATE PROJECTION IF NOT EXISTS '
+        create_line = create_line + self.projection_database + '.' if self.projection_database else create_line
+        create_line = create_line + self.projection_schema + '.' if self.projection_schema else create_line
+        create_line = create_line + self.projection_basename
+        create_line = create_line + ' /*+createtype(' + self.create_type + ')*/' if self.create_type else create_line
+        return create_line
+
+    def compile_projection_columns(self):
+        proj_col_list = ['(']
+        for count, col in enumerate(self.projection_col_list, 1):
+            formatted_column = self.format_projection_column(col, count)
+            proj_col_list.append(formatted_column)
+        proj_col_list.append(')')
+        proj_col_list.append('AS')
+
+        projection_columns = '\n'.join(proj_col_list)
+        return projection_columns
+
+    def format_projection_column(self, col, count):
+        column_str = ' '*8 + col['projection_col']
+        column_str = column_str + ' ENCODING ' + col['encoding'] if col['encoding'] else column_str
+        column_str = column_str + ' ACCESSRANK ' + str(col['accessrank']) if col['accessrank'] else column_str
+        column_str = column_str + ',' if count < len(self.projection_col_list) else column_str
+        return column_str
+
+    def compile_select_columns(self):
+        select_col_list = ['        SELECT']
+        for count, col in enumerate(self.select_list, 1):
+            formatted_column = self.format_generic_column(col, count, len(self.select_list))
+            select_col_list.append(formatted_column)
+
+        select_columns = '\n'.join(select_col_list)
+        return select_columns
+
+    def format_generic_column(self, col, count, list_len):
+        column_str = ' '*16 + col
+        column_str = column_str + ',' if count < list_len else column_str
+        return column_str
+
+    def compile_from_cluase(self):
+        from_clause = '        FROM '
+        from_clause = from_clause + self.from_database + '.' if self.from_database else from_clause
+        from_clause = from_clause + self.from_schema + '.' if self.from_schema else from_clause
+        from_clause = from_clause + self.from_table
+        return from_clause
+
+    def compile_order_by_clause(self):
+        order_list = ['        ORDER BY']
+        for count, col in enumerate(self.order_by_list, 1):
+            formatted_column = self.format_generic_column(col, count, len(self.order_by_list))
+            order_list.append(formatted_column)
+
+        order_by_columns = '\n'.join(order_list)
+        return order_by_columns
+
+    def compile_segment_clause(self):
+        if not self.segmentation_spec:
+            return 'UNSEGMENTED ALL NODES;'
+        else:
+            segment_clause = self.compile_segment_parts()
+            return segment_clause
+
+    def compile_segment_parts(self):
+        segment_clause = 'SEGMENTED BY '
+        segment_clause = segment_clause + 'MODULARHASH(' if self.modularhash == True else segment_clause
+        segment_clause = segment_clause + 'HASH(' if self.modularhash == False else segment_clause
+        hash_columns = ', '.join(self.hash_columns)
+        segment_clause = segment_clause + hash_columns + ') ALL NODES'
+        # segment_clause = segment_clause + ' KSAFE ' + str(self.ksafe) if self.ksafe else segment_clause
+        # segment_clause = segment_clause + ' OFFSET ' + str(self.offset) if self.offset else segment_clause
+        segment_clause = segment_clause + ';'
+        return segment_clause
 
 
 if __name__ == '__main__':
     proj_script = open('design', 'r').read()
     proj_obj = ProjectionObject(proj_script)
     proj_obj.parse_projection()
-
-    for key, value in proj_obj.__dict__.iteritems():
-        print(key)
-        print(value)
-        print('')
+    proj_obj.recompile_projection()
