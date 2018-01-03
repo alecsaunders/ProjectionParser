@@ -1,4 +1,5 @@
 .DS_store
+projection_parser/test.py
 projection_parser/design
-__pycache__/
-__pycache__/*
+projection_parser/__pycache__/
+projection_parser/__pycache__/*
