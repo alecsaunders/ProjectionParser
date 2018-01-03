@@ -1,4 +1,4 @@
-design
-./design
+.DS_store
+projection_parser/design
 __pycache__/
 __pycache__/*
