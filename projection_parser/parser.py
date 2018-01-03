@@ -1,9 +1,9 @@
 import re
 
 class ProjectionObject():
-    def __init__(self, create_projection_statement):
+    def __init__(self):
         self.recompiled_projection = None
-        self.raw_proj = create_projection_statement
+        self.raw_proj = None
         self.proj_parts = self.raw_proj
         self.projection_database = None
         self.projection_schema = None
@@ -35,7 +35,7 @@ class ProjectionObject():
         self.proj_parts = self.raw_proj
 
     def initial_sanitation(self):
-        self.proj_parts = self.proj_parts.strip()
+        self.proj_parts = self.raw_proj.strip()
         if self.proj_parts.endswith(';'):
             self.proj_parts = self.proj_parts[:-1]
         while '  ' in self.proj_parts:
@@ -287,16 +287,3 @@ class ProjectionObject():
         # segment_clause = segment_clause + ' OFFSET ' + str(self.offset) if self.offset else segment_clause
         segment_clause = segment_clause + ';'
         return segment_clause
-
-
-if __name__ == '__main__':
-    proj_script = open('design', 'r').read()
-    proj_obj = ProjectionObject(proj_script)
-    proj_obj.parse_projection()
-
-    proj_obj.projection_basename = 'TABE72300C2C1010A_dba_abs_171220_schnucks_mergejoin_86607ef8_01'
-    proj_obj.order_by_list += ['extra_col']
-    proj_obj.hash_columns = ['extra_col']
-
-    proj_obj.recompile_projection()
-    print(proj_obj.recompiled_projection)
