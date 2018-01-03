@@ -22,6 +22,8 @@ class ProjectionObject():
         self.offset = None
         self.ksafe = None
 
+        self.tab_space = ' '*8
+
     def parse_projection(self):
         self.initial_sanitation()
         self.set_projection_properties()
@@ -208,7 +210,7 @@ class ProjectionObject():
         recompiled_projection_list.append(order_by_clause)
         recompiled_projection_list.append(segment_clause)
 
-        self.rerecompiled_projection = '\n'.join(recompiled_projection_list)
+        self.recompiled_projection = '\n'.join(recompiled_projection_list)
 
     def compile_create_line(self):
         create_line = 'CREATE PROJECTION IF NOT EXISTS '
@@ -230,14 +232,15 @@ class ProjectionObject():
         return projection_columns
 
     def format_projection_column(self, col, count):
-        column_str = ' '*8 + col['projection_col']
+        column_str = self.tab_space + col['projection_col']
         column_str = column_str + ' ENCODING ' + col['encoding'] if col['encoding'] else column_str
         column_str = column_str + ' ACCESSRANK ' + str(col['accessrank']) if col['accessrank'] else column_str
         column_str = column_str + ',' if count < len(self.projection_col_list) else column_str
         return column_str
 
     def compile_select_columns(self):
-        select_col_list = ['        SELECT']
+        select_line = self.tab_space + 'SELECT'
+        select_col_list = [select_line]
         for count, col in enumerate(self.select_list, 1):
             formatted_column = self.format_generic_column(col, count, len(self.select_list))
             select_col_list.append(formatted_column)
@@ -246,19 +249,20 @@ class ProjectionObject():
         return select_columns
 
     def format_generic_column(self, col, count, list_len):
-        column_str = ' '*16 + col
+        column_str = self.tab_space*2 + col
         column_str = column_str + ',' if count < list_len else column_str
         return column_str
 
     def compile_from_cluase(self):
-        from_clause = '        FROM '
+        from_clause = self.tab_space + 'FROM '
         from_clause = from_clause + self.from_database + '.' if self.from_database else from_clause
         from_clause = from_clause + self.from_schema + '.' if self.from_schema else from_clause
         from_clause = from_clause + self.from_table
         return from_clause
 
     def compile_order_by_clause(self):
-        order_list = ['        ORDER BY']
+        order_by_line = self.tab_space + 'ORDER BY'
+        order_list = [order_by_line]
         for count, col in enumerate(self.order_by_list, 1):
             formatted_column = self.format_generic_column(col, count, len(self.order_by_list))
             order_list.append(formatted_column)
@@ -289,4 +293,10 @@ if __name__ == '__main__':
     proj_script = open('design', 'r').read()
     proj_obj = ProjectionObject(proj_script)
     proj_obj.parse_projection()
+
+    proj_obj.projection_basename = 'TABE72300C2C1010A_dba_abs_171220_schnucks_mergejoin_86607ef8_01'
+    proj_obj.order_by_list += ['extra_col']
+    proj_obj.hash_columns = ['extra_col']
+
     proj_obj.recompile_projection()
+    print(proj_obj.recompiled_projection)
