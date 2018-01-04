@@ -3,3 +3,5 @@ projection_parser/test.py
 projection_parser/design
 projection_parser/__pycache__/
 projection_parser/__pycache__/*
+ProjectionParser.egg-info/
+ProjectionParser.egg-info/*
