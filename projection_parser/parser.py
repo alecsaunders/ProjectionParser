@@ -213,7 +213,7 @@ class ProjectionObject():
         self.recompiled_projection = '\n'.join(recompiled_projection_list)
 
     def compile_create_line(self):
-        create_line = 'CREATE PROJECTION IF NOT EXISTS '
+        create_line = 'CREATE PROJECTION '
         create_line = create_line + self.projection_database + '.' if self.projection_database else create_line
         create_line = create_line + self.projection_schema + '.' if self.projection_schema else create_line
         create_line = create_line + self.projection_basename
