@@ -1,6 +1,6 @@
 import re
 
-class ProjectionObject():
+class ProjParser():
     def __init__(self):
         self.recompiled_projection = None
         self.raw_proj = None
@@ -22,6 +22,7 @@ class ProjectionObject():
         self.offset = None
         self.ksafe = None
 
+        # Style settings
         self.tab_space = ' '*8
 
     def parse_projection(self):
@@ -49,7 +50,7 @@ class ProjectionObject():
         hint_search_result = re.search(hint_pattern, script)
         if hint_search_result:
             hint = hint_search_result.group(0)
-            self.set_create_type(hint)
+            self.parse_hints(hint)
             self.proj_parts = re.sub(hint_pattern, '', script)
         create_line = self.proj_parts.split('(')[0].strip()
         create_projection_pattern = re.compile('CREATE PROJECTION ', re.IGNORECASE)
@@ -79,6 +80,28 @@ class ProjectionObject():
                 self.projection_basename = proj_parts[2]
         else:
             self.projection_basename = projection_name
+
+    def parse_hints(self, hint):
+        hints = self.get_hint_list(hint)
+        self.set_hint_parts(hints)
+
+    def get_hint_list(self, hint):
+        comment_start_pattern = '^\/\*\+'
+        comment_end_pattern = '\*\/$'
+        hint = re.sub(comment_start_pattern, '', hint)
+        hint = re.sub(comment_end_pattern, '', hint)
+        if ',' in hint:
+            return hint.split(',')
+        else:
+            return [hint]
+
+    def set_hint_parts(self, hints):
+        for hint in hints:
+            hint = hint.strip()
+            if re.search('createtype', hint, re.IGNORECASE):
+                hint = re.sub('createtype', '', hint, re.IGNORECASE).strip()
+                hint = hint.replace('(', '').replace(')', '')
+                self.create_type = hint.strip()
 
     def set_create_type(self, hint):
         hint = hint.replace('/*+', '').replace('/*', '').replace('*/', '').strip()
