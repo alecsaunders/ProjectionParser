@@ -5,3 +5,4 @@ projection_parser/__pycache__/
 projection_parser/__pycache__/*
 ProjectionParser.egg-info/
 ProjectionParser.egg-info/*
+projection_parser/*.pyc
