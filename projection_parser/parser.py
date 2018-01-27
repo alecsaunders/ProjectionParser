@@ -18,9 +18,11 @@ class ProjParser():
         self.order_by_list = []
         self.segmentation_spec = False  # False = UNSEGMENTED; True = SEGEMENTED
         self.modularhash = None  # False = HASH; True = MODULARHASH
-        self.hash_columns = []
+        self.segment_columns = []
+        self.group_by_column = []
         self.offset = None
         self.ksafe = None
+        self.lap = False
 
         # Style settings
         self.tab_space = ' '*8
@@ -139,7 +141,28 @@ class ProjParser():
     def set_select_list(self):
         select_parts, self.proj_parts = re.split('\sFROM\s', self.proj_parts.strip(), re.IGNORECASE)
         select_parts = re.split('\sSELECT\s', select_parts, re.IGNORECASE)[1]
-        self.select_list = list(map(lambda s: s.strip(), select_parts.split(',')))
+        self.select_list = list(map(lambda s: self.parser_select_parts(s), select_parts.split(',')))
+
+    def parser_select_parts(self, column):
+        select_column_dict = {}
+
+        column = column.strip()
+        column = re.split('\sAS\s', column, re.IGNORECASE)
+        if '(' in column[0]:
+            self.lap = True
+            agg_func, col_name = column[0].split('(')
+            agg_func = agg_func.strip()
+            col_name = col_name.split(')')[0].strip()
+            select_column_dict['col_name'] = col_name
+            select_column_dict['agg_func'] = agg_func
+        else:
+            select_column_dict['col_name'] = column[0]
+
+        if len(column) > 1:
+            col_alias = column[1].strip()
+            select_column_dict['col_alias'] = col_alias
+
+        return select_column_dict
 
     def set_from_clause(self):
         from_parts, self.proj_parts = re.split('\sORDER BY\s', self.proj_parts.strip(), re.IGNORECASE)
@@ -182,9 +205,9 @@ class ProjParser():
         hash_search_result = re.search('HASH', self.proj_parts, re.IGNORECASE)
         if hash_search_result:
             hash_parts, self.proj_parts = self.proj_parts.split(')')
-            hash_type, hash_columns = hash_parts.split('(')
+            hash_type, segment_columns = hash_parts.split('(')
             self.set_hash_type(hash_type)
-            self.set_hash_columns(hash_columns)
+            self.set_segment_columns(segment_columns)
 
 
     def set_hash_type(self, hash_type):
@@ -197,12 +220,12 @@ class ProjParser():
             if hash_pattern.match(hash_type):
                 self.modularhash = False
 
-    def set_hash_columns(self, hash_columns):
-        hash_columns = hash_columns.strip()
-        if ',' in hash_columns:
-            self.hash_columns = list(map(lambda c: c.strip(), hash_columns.split(',')))
+    def set_segment_columns(self, segment_columns):
+        segment_columns = segment_columns.strip()
+        if ',' in segment_columns:
+            self.segment_columns = list(map(lambda c: c.strip(), segment_columns.split(',')))
         else:
-            self.hash_columns.append(hash_columns)
+            self.segment_columns.append(segment_columns)
 
     def set_ksafe_offset(self):
         ksafe_pattern = re.compile('KSAFE\s', re.IGNORECASE)
@@ -223,15 +246,20 @@ class ProjParser():
         projection_columns = self.compile_projection_columns()
         select_clause = self.compile_select_columns()
         from_clause = self.compile_from_cluase()
-        order_by_clause = self.compile_order_by_clause()
-        segment_clause = self.compile_segment_clause()
+
 
         recompiled_projection_list.append(create_line)
         recompiled_projection_list.append(projection_columns)
         recompiled_projection_list.append(select_clause)
         recompiled_projection_list.append(from_clause)
-        recompiled_projection_list.append(order_by_clause)
-        recompiled_projection_list.append(segment_clause)
+        if self.lap:
+            group_by_clause = self.compile_group_by_clause()
+            recompiled_projection_list.append(group_by_clause)
+        else:
+            order_by_clause = self.compile_order_by_clause()
+            segment_clause = self.compile_segment_clause()
+            recompiled_projection_list.append(order_by_clause)
+            recompiled_projection_list.append(segment_clause)
 
         self.recompiled_projection = '\n'.join(recompiled_projection_list)
 
@@ -265,11 +293,21 @@ class ProjParser():
         select_line = self.tab_space + 'SELECT'
         select_col_list = [select_line]
         for count, col in enumerate(self.select_list, 1):
-            formatted_column = self.format_generic_column(col, count, len(self.select_list))
+            select_column_string = self.format_string_column(col)
+            formatted_column = self.format_generic_column(select_column_string, count, len(self.select_list))
             select_col_list.append(formatted_column)
 
         select_columns = '\n'.join(select_col_list)
         return select_columns
+
+    def format_string_column(self, col_dict):
+        if 'agg_func' in col_dict.keys():
+            col_name = '{0}({1})'.format(col_dict['agg_func'].upper(), col_dict['col_name'])
+        else:
+            col_name = col_dict['col_name']
+        if 'col_alias' in col_dict.keys():
+            col_name = '{0} AS {1}'.format(col_name, col_dict['col_alias'])
+        return col_name
 
     def format_generic_column(self, col, count, list_len):
         column_str = self.tab_space*2 + col
@@ -282,6 +320,10 @@ class ProjParser():
         from_clause = from_clause + self.from_schema + '.' if self.from_schema else from_clause
         from_clause = from_clause + self.from_table
         return from_clause
+
+    def compile_group_by_clause(self):
+        group_by_line = self.tab_space + 'GROUP BY'
+        return group_by_line
 
     def compile_order_by_clause(self):
         order_by_line = self.tab_space + 'ORDER BY'
@@ -304,8 +346,8 @@ class ProjParser():
         segment_clause = 'SEGMENTED BY '
         segment_clause = segment_clause + 'MODULARHASH(' if self.modularhash == True else segment_clause
         segment_clause = segment_clause + 'HASH(' if self.modularhash == False else segment_clause
-        hash_columns = ', '.join(self.hash_columns)
-        segment_clause = segment_clause + hash_columns + ') ALL NODES'
+        segment_columns = ', '.join(self.segment_columns)
+        segment_clause = segment_clause + segment_columns + ') ALL NODES'
         # segment_clause = segment_clause + ' KSAFE ' + str(self.ksafe) if self.ksafe else segment_clause
         # segment_clause = segment_clause + ' OFFSET ' + str(self.offset) if self.offset else segment_clause
         segment_clause = segment_clause + ';'
