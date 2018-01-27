@@ -19,7 +19,7 @@ class ProjParser():
         self.segmentation_spec = False  # False = UNSEGMENTED; True = SEGEMENTED
         self.modularhash = None  # False = HASH; True = MODULARHASH
         self.segment_columns = []
-        self.group_by_column = []
+        self.group_by_columns = []
         self.offset = None
         self.ksafe = None
         self.lap = False
@@ -255,6 +255,7 @@ class ProjParser():
         if self.lap:
             group_by_clause = self.compile_group_by_clause()
             recompiled_projection_list.append(group_by_clause)
+            recompiled_projection_list.append('ALL NODES;')
         else:
             order_by_clause = self.compile_order_by_clause()
             segment_clause = self.compile_segment_clause()
@@ -292,6 +293,7 @@ class ProjParser():
     def compile_select_columns(self):
         select_line = self.tab_space + 'SELECT'
         select_col_list = [select_line]
+
         for count, col in enumerate(self.select_list, 1):
             select_column_string = self.format_string_column(col)
             formatted_column = self.format_generic_column(select_column_string, count, len(self.select_list))
@@ -309,6 +311,10 @@ class ProjParser():
             col_name = '{0} AS {1}'.format(col_name, col_dict['col_alias'])
         return col_name
 
+    def format_column_list(self, col_name_list, delim, indent_cnt):
+        formated_columns = delim.join(list(map(lambda c: self.tab_space*indent_cnt + c + ',', col_name_list)))[:-1]
+        return formated_columns
+
     def format_generic_column(self, col, count, list_len):
         column_str = self.tab_space*2 + col
         column_str = column_str + ',' if count < list_len else column_str
@@ -322,8 +328,11 @@ class ProjParser():
         return from_clause
 
     def compile_group_by_clause(self):
-        group_by_line = self.tab_space + 'GROUP BY'
-        return group_by_line
+        group_by_column_list = list(filter(None, map(lambda c: c['col_name'] if not 'agg_func' in c else None, self.select_list)))
+        group_by_columns = self.format_column_list(group_by_column_list, '\n', 2)
+
+        group_by_section = self.tab_space + 'GROUP BY\n{}'.format(group_by_columns)
+        return group_by_section
 
     def compile_order_by_clause(self):
         order_by_line = self.tab_space + 'ORDER BY'
