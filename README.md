@@ -1,2 +1,2 @@
 # ProjectionParser
-Python module for parsing out the different parts of a projection
+Python Module to parse, edit and recompile Vertica projections
