@@ -29,7 +29,7 @@ class ProjParser():
 
     def parse_projection(self):
         self.initial_sanitation()
-        self.set_projection_properties()
+        self.set_properties_from_create_line()
         self.set_projection_col_list()
         self.set_select_list()
         self.set_from_clause()
@@ -44,10 +44,8 @@ class ProjParser():
         while '  ' in self.proj_parts:
             self.proj_parts = self.proj_parts.replace('  ', ' ')
 
-    def set_projection_properties(self):
-        self.set_properties_from_create_line(self.proj_parts)
-
-    def set_properties_from_create_line(self, script):
+    def set_properties_from_create_line(self):
+        script = self.proj_parts
         hint_pattern = '\/\*.*\*\/'
         hint_search_result = re.search(hint_pattern, script)
         if hint_search_result:
@@ -247,7 +245,6 @@ class ProjParser():
         select_clause = self.compile_select_columns()
         from_clause = self.compile_from_cluase()
 
-
         recompiled_projection_list.append(create_line)
         recompiled_projection_list.append(projection_columns)
         recompiled_projection_list.append(select_clause)
@@ -357,6 +354,7 @@ class ProjParser():
         segment_clause = segment_clause + 'HASH(' if self.modularhash == False else segment_clause
         segment_columns = ', '.join(self.segment_columns)
         segment_clause = segment_clause + segment_columns + ') ALL NODES'
+        ### If you want to set K-Safety or Offset, uncomment the next two lines
         # segment_clause = segment_clause + ' KSAFE ' + str(self.ksafe) if self.ksafe else segment_clause
         # segment_clause = segment_clause + ' OFFSET ' + str(self.offset) if self.offset else segment_clause
         segment_clause = segment_clause + ';'
