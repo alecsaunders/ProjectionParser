@@ -27,6 +27,9 @@ class ProjParser():
         # Style settings
         self.tab_space = ' '*8
 
+
+    ######################
+    ## PARSE PROJECTION ##
     def parse_projection(self):
         self.initial_sanitation()
         self.set_properties_from_create_line()
@@ -198,7 +201,6 @@ class ProjParser():
         self.set_hash_parts()
         self.set_ksafe_offset()
 
-
     def set_hash_parts(self):
         hash_search_result = re.search('HASH', self.proj_parts, re.IGNORECASE)
         if hash_search_result:
@@ -206,7 +208,6 @@ class ProjParser():
             hash_type, segment_columns = hash_parts.split('(')
             self.set_hash_type(hash_type)
             self.set_segment_columns(segment_columns)
-
 
     def set_hash_type(self, hash_type):
         hash_type = hash_type.strip()
@@ -238,6 +239,8 @@ class ProjParser():
             offset_parts = re.split(offset_pattern, self.proj_parts)[1]
             self.offset = int(offset_parts.split(' ')[0].strip())
 
+    ##########################
+    ## RECOMPILE PROJECTION ##
     def recompile_projection(self):
         recompiled_projection_list = []
         create_line = self.compile_create_line()
