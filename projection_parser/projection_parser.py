@@ -26,6 +26,7 @@ class ProjParser():
 
         # Style settings
         self.tab_space = ' '*2
+        self.table_name_with_column_name = False
 
 
     ######################
@@ -139,6 +140,11 @@ class ProjParser():
 
             self.projection_col_list.append(proj_col_dict)
 
+    def remove_table_from_col(self, col):
+        if len(col.split(".")) > 1:
+            col = col.split(".")[1]
+        return col
+
     def set_select_list(self):
         select_parts, self.proj_parts = re.split('\sFROM\s', self.proj_parts.strip(), re.IGNORECASE)
         select_parts = re.split('\sSELECT\s', select_parts, re.IGNORECASE)[1]
@@ -158,6 +164,9 @@ class ProjParser():
             select_column_dict['agg_func'] = agg_func
         else:
             select_column_dict['col_name'] = column[0]
+
+        if not self.table_name_with_column_name:
+            select_column_dict['col_name'] = self.remove_table_from_col(select_column_dict['col_name'])
 
         if len(column) > 1:
             col_alias = column[1].strip()
@@ -187,6 +196,8 @@ class ProjParser():
         if seg_search_result:
             order_by_parts = re.split(segmented_pattern, order_by_parts, re.IGNORECASE)[0]
         order_by_parts = order_by_parts.strip().split(',')
+        if not self.table_name_with_column_name:
+            order_by_parts = list(map(lambda o: self.remove_table_from_col(o), order_by_parts))
         self.order_by_list = list(map(lambda o: re.split('\s', o.strip())[0], order_by_parts))
 
     def set_segmentation_clause(self):
@@ -222,7 +233,10 @@ class ProjParser():
     def set_segment_columns(self, segment_columns):
         segment_columns = segment_columns.strip()
         if ',' in segment_columns:
-            self.segment_columns = list(map(lambda c: c.strip(), segment_columns.split(',')))
+            segment_columns_list = segment_columns.split(',')
+            if not self.table_name_with_column_name:
+                segment_columns_list = list(map(lambda c: self.remove_table_from_col(c), segment_columns_list))
+            self.segment_columns = list(map(lambda c: c.strip(), segment_columns_list))
         else:
             self.segment_columns.append(segment_columns)
 
