@@ -11,6 +11,7 @@ class ProjParser():
         self.buddy = None
         self.create_type = None
         self.projection_col_list = []
+        self.sorted_projection_col_list = []
         self.select_list = []
         self.from_database = None
         self.from_schema = None
@@ -127,7 +128,7 @@ class ProjParser():
         for c in projection_cols_raw_list:
             proj_col_dict = {}
             c_split = c.split(' ')
-            proj_col_dict['projection_col'] = c_split[0]
+            proj_col_dict['col_name'] = c_split[0]
             proj_column_modifiers = ' '.join(c_split[1:]).strip().upper()
             if 'ENCODING ' in proj_column_modifiers:
                 proj_col_dict['encoding'] = proj_column_modifiers.split('ENCODING ')[1].strip().split(' ')[0]
@@ -137,7 +138,6 @@ class ProjParser():
                 proj_col_dict['accessrank'] = int(proj_column_modifiers.split('ACCESSRANK ')[1].strip())
             else:
                 proj_col_dict['accessrank'] = None
-
             self.projection_col_list.append(proj_col_dict)
 
     def remove_table_from_col(self, col):
@@ -288,7 +288,8 @@ class ProjParser():
 
     def compile_projection_columns(self):
         proj_col_list = ['(']
-        for count, col in enumerate(self.projection_col_list, 1):
+        self.sorted_projection_col_list = self.order_select_columns(self.projection_col_list)
+        for count, col in enumerate(self.sorted_projection_col_list, 1):
             formatted_column = self.format_projection_column(col, count)
             proj_col_list.append(formatted_column)
         proj_col_list.append(')')
@@ -298,23 +299,39 @@ class ProjParser():
         return projection_columns
 
     def format_projection_column(self, col, count):
-        column_str = self.tab_space + col['projection_col']
+        column_str = self.tab_space + col['col_name']
         column_str = column_str + ' ENCODING ' + col['encoding'] if col['encoding'] else column_str
         column_str = column_str + ' ACCESSRANK ' + str(col['accessrank']) if col['accessrank'] else column_str
-        column_str = column_str + ',' if count < len(self.projection_col_list) else column_str
+        column_str = column_str + ',' if count < len(self.sorted_projection_col_list) else column_str
         return column_str
 
     def compile_select_columns(self):
         select_line = 'SELECT'
         select_col_list = [select_line]
-
-        for count, col in enumerate(self.select_list, 1):
+        ordered_select_list = self.order_select_columns(self.select_list)
+        for count, col in enumerate(ordered_select_list, 1):
             select_column_string = self.format_string_column(col)
-            formatted_column = self.format_generic_column(select_column_string, count, len(self.select_list))
+            formatted_column = self.format_generic_column(select_column_string, count, len(ordered_select_list))
             select_col_list.append(formatted_column)
 
         select_columns = '\n'.join(select_col_list)
         return select_columns
+
+    def order_select_columns(self, select_list):
+        ordered_list = []
+        remaining_list = []
+        for ob_col in self.order_by_list:
+            for sel_col in select_list:
+                if sel_col['col_name'] == ob_col:
+                    ordered_list.append(sel_col)
+
+        remaining_list = select_list
+        for ob_col in ordered_list:
+            for i in range(len(remaining_list) -1, -1, -1):
+                if ob_col['col_name'] == remaining_list[i]['col_name']:
+                    del remaining_list[i]
+
+        return ordered_list + remaining_list
 
     def format_string_column(self, col_dict):
         if 'agg_func' in col_dict.keys():
