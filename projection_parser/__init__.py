@@ -1,1 +1,1 @@
-from projection_parser.parser import ProjectionObject
+from projection_parser import ProjParser
