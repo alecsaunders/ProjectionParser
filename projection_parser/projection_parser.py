@@ -321,7 +321,7 @@ class ProjParser():
         return column_str
 
     def compile_from_cluase(self):
-        from_clause = self.tab_space + 'FROM '
+        from_clause = 'FROM '
         from_clause = from_clause + self.from_database + '.' if self.from_database else from_clause
         from_clause = from_clause + self.from_schema + '.' if self.from_schema else from_clause
         from_clause = from_clause + self.from_table
@@ -335,7 +335,7 @@ class ProjParser():
         return group_by_section
 
     def compile_order_by_clause(self):
-        order_by_line = self.tab_space + 'ORDER BY'
+        order_by_line = 'ORDER BY'
         order_list = [order_by_line]
         for count, col in enumerate(self.order_by_list, 1):
             formatted_column = self.format_generic_column(col, count, len(self.order_by_list))
