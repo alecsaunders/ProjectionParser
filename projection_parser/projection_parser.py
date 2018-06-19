@@ -388,10 +388,19 @@ class ProjParser():
         segment_clause = 'SEGMENTED BY '
         segment_clause = segment_clause + 'MODULARHASH(' if self.modularhash == True else segment_clause
         segment_clause = segment_clause + 'HASH(' if self.modularhash == False else segment_clause
-        segment_columns = ', '.join(self.segment_columns)
+        proj_segment_columns = self.segment_columns
+        if not self.table_name_with_column_name:
+            proj_segment_columns = list(map(lambda c: self.strip_segment_columns(c), proj_segment_columns))
+
+        segment_columns = ', '.join(proj_segment_columns)
         segment_clause = segment_clause + segment_columns + ') ALL NODES'
         ### If you want to set K-Safety or Offset, uncomment the next two lines
         # segment_clause = segment_clause + ' KSAFE ' + str(self.ksafe) if self.ksafe else segment_clause
         # segment_clause = segment_clause + ' OFFSET ' + str(self.offset) if self.offset else segment_clause
         segment_clause = segment_clause + ';'
         return segment_clause
+
+    def strip_segment_columns(self, col):
+        col_parts = col.split('.')
+        stripped_column_name = col_parts[len(col_parts) - 1]
+        return stripped_column_name
