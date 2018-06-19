@@ -28,6 +28,7 @@ class ProjParser():
         # Style settings
         self.tab_space = ' '*2
         self.table_name_with_column_name = False
+        self.if_not_exists = True
 
 
     ######################
@@ -280,6 +281,7 @@ class ProjParser():
 
     def compile_create_line(self):
         create_line = 'CREATE PROJECTION '
+        create_line = create_line + ' IF NOT EXISTS ' if self.if_not_exists else create_line
         create_line = create_line + self.projection_database + '.' if self.projection_database else create_line
         create_line = create_line + self.projection_schema + '.' if self.projection_schema else create_line
         create_line = create_line + self.projection_basename
