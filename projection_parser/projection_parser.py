@@ -25,6 +25,12 @@ class ProjParser():
         self.ksafe = None
         self.lap = False
 
+        # Topk Properties
+        self.is_topk = False
+        self.topk_limit = None
+        self.topk_partition = ''
+        self.topk_order_by = ''
+
         # Style settings
         self.tab_space = ' '*2
         self.table_name_with_column_name = False
@@ -38,10 +44,15 @@ class ProjParser():
         self.set_properties_from_create_line()
         self.set_projection_col_list()
         self.set_select_list()
-        self.set_from_clause()
-        self.set_order_by_list()
-        self.set_segmentation_clause()
-        self.proj_parts = self.raw_proj
+        self.is_topk = self.is_projection_topk()
+        if self.is_topk:
+            self.set_topk_properties()
+            self.set_ksafe_offset()
+        else:
+            self.set_from_clause()
+            self.set_order_by_list()
+            self.set_segmentation_clause()
+            self.proj_parts = self.raw_proj
 
     def initial_sanitation(self):
         self.proj_parts = self.raw_proj.strip()
@@ -177,6 +188,9 @@ class ProjParser():
 
     def set_from_clause(self):
         from_parts, self.proj_parts = re.split('\sORDER BY\s', self.proj_parts.strip(), re.IGNORECASE)
+        self.set_from_parts(from_parts)
+
+    def set_from_parts(self, from_parts):
         from_parts = from_parts.strip()
         if '.' in from_parts:
             from_parts = from_parts.split('.')
@@ -253,6 +267,28 @@ class ProjParser():
         if offset_search_result:
             offset_parts = re.split(offset_pattern, self.proj_parts)[1]
             self.offset = int(offset_parts.split(' ')[0].strip())
+
+    def is_projection_topk(self):
+        raw_proj_oneline = ''.join(self.raw_proj.split())
+        if 'over(partitionby' in raw_proj_oneline.lower():
+            return True
+        else:
+            return False
+
+    def set_topk_properties(self):
+        limit_pattern = re.compile('\sLIMIT\s\d+', re.IGNORECASE)
+        limit = re.search(limit_pattern, self.proj_parts).group(0)
+        from_parts, self.proj_parts = re.split(limit_pattern, self.proj_parts)
+        self.set_from_parts(from_parts)
+        self.topk_limit = limit.split()[1]
+        part_order_by_pattern = re.compile('\sORDER BY\s', re.IGNORECASE)
+        over_partition, order_by_parts = re.split(part_order_by_pattern, self.proj_parts)
+        partition_by_pattern = re.compile('\(\s*PARTITION\sBY\s', re.IGNORECASE)
+        self.topk_partition = re.split(partition_by_pattern, over_partition)[1].strip()
+        end_over_paren_pattern = re.compile('\)', re.IGNORECASE)
+        topk_order_by, self.proj_parts = re.split(end_over_paren_pattern, order_by_parts)
+        self.topk_order_by = topk_order_by.strip()
+
 
     ##########################
     ## RECOMPILE PROJECTION ##
