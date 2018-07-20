@@ -23,7 +23,7 @@ class ProjParser():
         self.group_by_columns = []
         self.offset = None
         self.ksafe = None
-        self.lap = False
+        self.is_lap = False
 
         # Topk Properties
         self.is_topk = False
@@ -168,7 +168,7 @@ class ProjParser():
         column = column.strip()
         column = re.split('\sAS\s', column, re.IGNORECASE)
         if '(' in column[0]:
-            self.lap = True
+            self.is_lap = True
             agg_func, col_name = column[0].split('(')
             agg_func = agg_func.strip()
             col_name = col_name.split(')')[0].strip()
@@ -303,9 +303,13 @@ class ProjParser():
         recompiled_projection_list.append(projection_columns)
         recompiled_projection_list.append(select_clause)
         recompiled_projection_list.append(from_clause)
-        if self.lap:
+        if self.is_lap:
             group_by_clause = self.compile_group_by_clause()
             recompiled_projection_list.append(group_by_clause)
+            recompiled_projection_list.append('ALL NODES;')
+        elif self.is_topk:
+            limit_part_order_line = self.compile_limit_part_order()
+            recompiled_projection_list.append(limit_part_order_line)
             recompiled_projection_list.append('ALL NODES;')
         else:
             order_by_clause = self.compile_order_by_clause()
@@ -440,3 +444,14 @@ class ProjParser():
         col_parts = col.split('.')
         stripped_column_name = col_parts[len(col_parts) - 1]
         return stripped_column_name
+
+    def compile_limit_part_order(self):
+        lpo_line = '{0} {1} {2} {3} {4} {5})'.format(
+            'LIMIT',
+            self.topk_limit,
+            'OVER(PARTITION BY',
+            self.topk_partition,
+            'ORDER BY',
+            self.topk_order_by,
+        )
+        return lpo_line
