@@ -274,25 +274,15 @@ class ProjParser():
         self.parse_partition(part_clause)
         end_over_paren_pattern = re.compile('\)', re.IGNORECASE)
         topk_order_by, self.proj_parts = re.split(end_over_paren_pattern, order_by_parts)
-        self.topk_order_by = topk_order_by.strip()
+        self.parse_topk_order_by(topk_order_by)
 
     def parse_partition(self, partition_clause):
-        part_columns = []
-        new_part_columns = []
+        col_list = self.get_col_names_only(partition_clause)
+        self.topk_partition = self.single_line_column_list(col_list)
 
-        if ',' in partition_clause:
-            part_columns = partition_clause.split(',')
-        else:
-            part_columns = [partition_clause]
-
-        for c in part_columns:
-            if '.' in c:
-                c_parts = c.split('.')
-                col_name = c_parts[len(c_parts) - 1].strip()
-                new_part_columns.append(col_name)
-
-        new_part_clause = ', '.join(new_part_columns)
-        self.topk_partition = new_part_clause
+    def parse_topk_order_by(self, order_clause):
+        col_list = self.get_col_names_only(order_clause)
+        self.topk_order_by = self.single_line_column_list(col_list)
 
 
     ##########################
@@ -482,3 +472,22 @@ class ProjParser():
             obj = full_obj
 
         return db, schema, obj
+
+    def get_col_names_only(self, full_col_name):
+        columns = []
+        new_columns = []
+
+        if ',' in full_col_name:
+            columns = full_col_name.split(',')
+        else:
+            columns = [full_col_name]
+
+        for c in columns:
+            if '.' in c:
+                c_parts = c.split('.')
+                col_name = c_parts[len(c_parts) - 1].strip()
+                new_columns.append(col_name)
+        return new_columns
+
+    def single_line_column_list(self, col_list):
+        return ', '.join(col_list)
