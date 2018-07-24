@@ -86,17 +86,10 @@ class ProjParser():
             except:
                 pass
 
-        if '.' in projection_name:
-            proj_parts = projection_name.split('.')
-            if len(proj_parts) == 2:
-                self.projection_schema = proj_parts[0]
-                self.projection_basename = proj_parts[1]
-            if len(proj_parts) == 3:
-                self.projection_database = proj_parts[0]
-                self.projection_schema = proj_parts[1]
-                self.projection_basename = proj_parts[2]
-        else:
-            self.projection_basename = projection_name
+        db, sch, proj = self.split_db_schema_obj(projection_name)
+        self.projection_database = db
+        self.projection_schema = sch
+        self.projection_basename = proj
 
     def parse_hints(self, hint):
         hints = self.get_hint_list(hint)
@@ -192,17 +185,10 @@ class ProjParser():
 
     def set_from_parts(self, from_parts):
         from_parts = from_parts.strip()
-        if '.' in from_parts:
-            from_parts = from_parts.split('.')
-            if len(from_parts) == 2:
-                self.from_schema = from_parts[0]
-                self.from_table = from_parts[1]
-            if len(from_parts) == 3:
-                self.from_database = from_parts[0]
-                self.from_schema = from_parts[1]
-                self.from_table = from_parts[2]
-        else:
-            self.from_table = from_parts
+        db, sch, table = self.split_db_schema_obj(from_parts)
+        self.from_database = db
+        self.from_schema = sch
+        self.from_table = table
 
     def set_order_by_list(self):
         order_by_parts = self.proj_parts.strip()
@@ -455,3 +441,25 @@ class ProjParser():
             self.topk_order_by,
         )
         return lpo_line
+
+
+    ##########################
+    ## UTILITY FUNCTIONS    ##
+
+    def split_db_schema_obj(self, full_obj):
+        db = None
+        schema = None
+        obj = None
+        if '.' in full_obj:
+            obj_parts = full_obj.split('.')
+            if len(obj_parts) == 2:
+                schema = obj_parts[0]
+                obj = obj_parts[1]
+            if len(obj_parts) == 3:
+                db = obj_parts[0]
+                schema = obj_parts[1]
+                obj = obj_parts[2]
+        else:
+            obj = full_obj
+
+        return db, schema, obj
