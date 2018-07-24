@@ -270,10 +270,29 @@ class ProjParser():
         part_order_by_pattern = re.compile('\sORDER BY\s', re.IGNORECASE)
         over_partition, order_by_parts = re.split(part_order_by_pattern, self.proj_parts)
         partition_by_pattern = re.compile('\(\s*PARTITION\sBY\s', re.IGNORECASE)
-        self.topk_partition = re.split(partition_by_pattern, over_partition)[1].strip()
+        part_clause = re.split(partition_by_pattern, over_partition)[1].strip()
+        self.parse_partition(part_clause)
         end_over_paren_pattern = re.compile('\)', re.IGNORECASE)
         topk_order_by, self.proj_parts = re.split(end_over_paren_pattern, order_by_parts)
         self.topk_order_by = topk_order_by.strip()
+
+    def parse_partition(self, partition_clause):
+        part_columns = []
+        new_part_columns = []
+
+        if ',' in partition_clause:
+            part_columns = partition_clause.split(',')
+        else:
+            part_columns = [partition_clause]
+
+        for c in part_columns:
+            if '.' in c:
+                c_parts = c.split('.')
+                col_name = c_parts[len(c_parts) - 1].strip()
+                new_part_columns.append(col_name)
+
+        new_part_clause = ', '.join(new_part_columns)
+        self.topk_partition = new_part_clause
 
 
     ##########################
