@@ -76,6 +76,10 @@ class ProjParser():
         create_line = re.sub(if_not_exists_pattern, '', create_line)
         projection_name = create_line.strip()
 
+        db, sch, proj = self.split_db_schema_obj(projection_name)
+
+        self.projection_name = proj
+
         buddy_pattern = '\_b\d$'
         bx_search_result = re.search(buddy_pattern, projection_name, re.IGNORECASE)
         if bx_search_result:
